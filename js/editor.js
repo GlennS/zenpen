@@ -216,15 +216,16 @@ module.exports = function(container) {
 	checkTextHighlighting = function() {
 	    var selection = window.getSelection();
 
-	    if (d3.event &&
-		(
-		    d3.event.toElement === "url-input" ||
-			d3.event.toElement.classList.contains("url") ||
-			d3.event.toElement.parentNode.classList.contains("ui-inputs"))) {
-		
-		currentNodeList = findNodes(selection.focusNode);
-		updateBubbleStates();
-		return;
+	    if (d3.event) {
+		var target = d3.select(d3.event.target || d3.event.toElement);
+
+		if (target.classed("url-input") ||
+		    target.classed("url")) {
+		    
+		    currentNodeList = findNodes(selection.focusNode);
+		    updateBubbleStates();
+		    return;
+		}
 	    }
 	    
 	    // Check selections exist
