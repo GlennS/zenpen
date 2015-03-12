@@ -318,7 +318,7 @@ module.exports = function(container) {
     /*
      Connects the toolbar to an element.
      */
-    return function(documents, onChange)  {
+    var m = function(documents, onChange)  {
 	documents.attr("contenteditable", true)
 	    .classed(editable, true)
 	    .on("input", function(d, i) {
@@ -354,4 +354,10 @@ module.exports = function(container) {
 		};
 	    });
     };
+
+    m.update = function() {
+	updateBubblePosition();
+    };
+
+    return m;
 };
