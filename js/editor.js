@@ -251,7 +251,7 @@ module.exports = function(container) {
 	    lastType = selection.isCollapsed;
 	},
 
-	onSelectorBlur = function(event) {
+	onSelectorBlur = function() {
 	    textOptions.classed("fade", true);
 	    setTimeout(
 		function() {
@@ -358,6 +358,10 @@ module.exports = function(container) {
 
     m.update = function() {
 	updateBubblePosition();
+    };
+
+    m.hide = function() {
+	onSelectorBlur();
     };
 
     return m;
