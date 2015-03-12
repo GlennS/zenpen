@@ -219,7 +219,7 @@ module.exports = function(container) {
 	    if (d3.event &&
 		(
 		    d3.event.toElement === "url-input" ||
-			d3.event.toElement.contains("url") ||
+			d3.event.toElement.classList.contains("url") ||
 			d3.event.toElement.parentNode.classList.contains("ui-inputs"))) {
 		
 		currentNodeList = findNodes(selection.focusNode);
