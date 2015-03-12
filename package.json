@@ -1,0 +1,27 @@
+{
+    "name": "zenpen-toolbar",
+    "version": "0.2.2",
+    "description": "Zenpen without the save functionality",
+    "main": "js/editor.js",
+    "repository": {
+	"type": "git",
+	"url": "git://github.com/GlennS/zenpen.git"
+    },
+    "keywords": [
+	"Zenpen",
+	"editor",
+	"html",
+	"wysiwyg"
+    ],
+    "license": "Apache v2.0",
+    "devDependencies": {
+	"browserify": "5.9.1"
+    },
+    "dependencies": {
+	"d3": "3.5.3"
+    },
+    "directories": {
+	"js": "js",
+	"css": "css"
+    }
+}

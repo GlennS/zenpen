@@ -69,10 +69,10 @@ article {
 }
 
 blockquote {
-	border-left: 4px solid deepskyblue;
-	margin-left: -19px;
-	padding-left: 15px;
-	margin-right: 0px;
+  background: #f9f9f9;
+  border-left: 0.45em solid #ccc;
+  margin: 1.5em 0.45em;
+  padding: 0.5em 0.45em;
 }
 
 .no-overflow {

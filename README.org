@@ -1,0 +1,81 @@
+* Zenpen Toolbar
+A deriviative of Zenpen (http://zenpen.io), adapted to be a JavaScript component that you can apply to many different elements on a page.
+
+** Modifications
+*** Code Organisation
+The code is now arranged as Node modules, so the editor factory can be loaded using the require statement. 
+
+I've moved everything to "use strict";.
+
+Added d3 as a dependency - I'm using it for event management and as a DOM helper library.
+
+*** Multiple Dialogues
+After creating a toolbar, call it as a function with a d3 selection to hook up events for that node.
+
+*** UI Removal
+I've removed the following features:
+ + HTML local storage
+ + Fullscreen
+ + Word count and word count targets
+ + Colour change
+
+*** Links
+The text of a link can no longer be edited once it's been created (contentEditable="false"). Instead, you must delete and re-create it.
+
+Links now always refer to the browser window when we're in an iframe (target="_top").
+
+** TODO API
+What should this be?
+
+*** Example
+
+
+** Run the Demo
+First, clone the repository:
+#+BEGIN_SRC sh
+  git clone git@github.com:GlennS/zenpen.git
+#+END_SRC
+
+Our Javascript files our arranged as node.js modules, and we use the 'browserify' tool to combine them into a single file.
+
+Install [[http://nodejs.org/][Node JS]]. For example, on a Debian-based system using the package manager:
+#+BEGIN_SRC sh
+sudo aptitude update;
+sudo aptitude install -y nodejs nodejs-legacy;
+#+END_SRC
+
+Next, install browserify using Node's package manager npm:
+#+BEGIN_SRC sh
+  sudo npm -g install browserify; # Install Browserify as a command you can run from your shell.
+#+END_SRC
+
+Run 'make', or run the appropriate commands manually if you do not have it:
+#+BEGIN_SRC sh
+  # On Linux, Mac OS, BSD etc., or from mingw32/Git Bash
+
+  make; # Runs the build target, which will execute the commands below for you.
+
+  # On Windows (if you don't have mingw32).
+
+  npm install; # Install the various packages we depend on (listed in package.json).
+  browserify demo.js -o bin/main.js; # Package all the Javascript code together in a way that we can load into a browser.
+#+END_SRC
+
+Serve index.html using any web server. For example, using python3 on a Debian system:
+#+BEGIN_SRC sh
+  sudo python3 -m http.server 80;
+#+END_SRC
+
+At this point you should be able to see the demo page on [[http://localhost]].
+
+** Source Code
+[[https://github.com/cse-bristol/sharejs-file-menu][Get the source code.]]
+
+Get the [[https://github.com/tholman/zenpen][original source code]] from which this version is derived.
+
+** License
+The Apache License
+
+Copyright (C) 2014 ~ [[http://tholman.com][Tim Holman]] ~ timothy.w.holman@gmail.com
+
+Modifications Copyright (C) 2015 Glenn Searby

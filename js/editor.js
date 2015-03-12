@@ -1,359 +1,352 @@
-// editor
-ZenPen = window.ZenPen || {};
-ZenPen.editor = (function() {
+"use strict";
 
-	// Editor elements
-	var headerField, contentField, cleanSlate, lastType, currentNodeList, savedSelection;
+/*global module, require, setTimeout*/
 
-	// Editor Bubble elements
-	var textOptions, optionsBox, boldButton, italicButton, quoteButton, urlButton, urlInput;
+var d3 = require("d3"),
+    /*
+     Off-screen position - a quick way to hide things.
+     */
+    nowhere = "-999px",
+    editable = "editable-text";
 
-	var composing;
+var findNodes = function(element) {
+    var nodeNames = {};
+    nodeNames[editable] = false;
 
-	function init() {
+    // Internal node?
+    var selection = window.getSelection();
 
-		composing = false;
-		bindElements();
+    while (element.parentNode) {
+	nodeNames[element.nodeName] = true;
+	element = element.parentNode;
 
-		// Set cursor position
-		var range = document.createRange();
-		var selection = window.getSelection();
-		range.setStart(headerField, 1);
-		selection.removeAllRanges();
-		selection.addRange(range);
-
-		createEventBindings();
-
-		// Load state if storage is supported
-		if ( ZenPen.util.supportsHtmlStorage() ) {
-			loadState();
-		}
+	if (element.nodeName === 'A') {
+	    nodeNames.url = element.href;
 	}
 
-	function createEventBindings() {
-
-		// Key up bindings
-		if ( ZenPen.util.supportsHtmlStorage() ) {
-
-			document.onkeyup = function( event ) {
-				checkTextHighlighting( event );
-				saveState();
-			}
-
-		} else {
-			document.onkeyup = checkTextHighlighting;
-		}
-
-		// Mouse bindings
-		document.onmousedown = checkTextHighlighting;
-		document.onmouseup = function( event ) {
-
-			setTimeout( function() {
-				checkTextHighlighting( event );
-			}, 1);
-		};
-		
-		// Window bindings
-		window.addEventListener( 'resize', function( event ) {
-			updateBubblePosition();
-		});
-
-
-		document.body.addEventListener( 'scroll', function() {
-
-			// TODO: Debounce update bubble position to stop excessive redraws
-			updateBubblePosition();
-		});
-
-		// Composition bindings. We need them to distinguish
-		// IME composition from text selection
-		document.addEventListener( 'compositionstart', onCompositionStart );
-		document.addEventListener( 'compositionend', onCompositionEnd );
+	if (element !== document && d3.select(element).classed(editable)) {
+	    nodeNames[editable] = element;
 	}
+    }
 
+    return nodeNames;
+},
 
-	function bindElements() {
+    hasNode = function(nodeList, name) {
+	return !!nodeList[name];
+    },
 
-		headerField = document.querySelector( '.header' );
-		contentField = document.querySelector( '.content' );
-		textOptions = document.querySelector( '.text-options' );
-
-		optionsBox = textOptions.querySelector( '.options' );
-
-		boldButton = textOptions.querySelector( '.bold' );
-		boldButton.onclick = onBoldClick;
-
-		italicButton = textOptions.querySelector( '.italic' );
-		italicButton.onclick = onItalicClick;
-
-		quoteButton = textOptions.querySelector( '.quote' );
-		quoteButton.onclick = onQuoteClick;
-
-		urlButton = textOptions.querySelector( '.url' );
-		urlButton.onmousedown = onUrlClick;
-
-		urlInput = textOptions.querySelector( '.url-input' );
-		urlInput.onblur = onUrlInputBlur;
-		urlInput.onkeydown = onUrlInputKeyDown;
+    anchorAttr = function(a) {
+	if (a.tagName.toLowerCase() === "a") {
+	    if (!a.getAttribute("contentEditable")) {
+		a.setAttribute("contentEditable", false);
+	    }
+	    
+	    if (!a.getAttribute("target")) {
+		a.setAttribute("target", "_top");
+	    }
 	}
+    };
 
-	function checkTextHighlighting( event ) {
+/*
+ Makes an editor toolbar.
+ A toolbar may be shared between multiple elements by calling this function for each of them.
+ */
+module.exports = function(container) {
+    var composing = false,
+	onCompositionStart = function() {
+	    composing = true;
+	},
 
-		var selection = window.getSelection();
+	onCompositionEnd = function() {
+	    composing = false;
+	},
 
+	/*
+	 Last selection is a temporary holiding place for a range (useful when we have to get some user input before operating on that range).
+	 Last type is a boolean.
+	 */
+	lastSelection,
+	lastType,
 
-		if ( (event.target.className === "url-input" ||
-		    event.target.classList.contains( "url" ) ||
-		    event.target.parentNode.classList.contains( "ui-inputs" ) ) ) {
+	rehighlightLastSelection = function() {
+	    window.getSelection().addRange(lastSelection);
+	},
 
-			currentNodeList = findNodes( selection.focusNode );
-			updateBubbleStates();
-			return;
-		}
+	/*
+	 Make toolbar HTML elements.
+	 */
+	textOptions = container
+	    .append("div")
+	    .classed("text-options", true),
+	optionsBox = textOptions.append("div")
+	    .classed("options", true),
+	noOverflow = optionsBox.append("span")
+	    .classed("no-overflow", true),
+	lengthenUIInputs = noOverflow.append("span")
+	    .classed("lengthen ui-inputs", true),
 
-		// Check selections exist
-		if ( selection.isCollapsed === true && lastType === false ) {
+	onChange = function() {
+	    if (currentNodeList[editable]) {
+		currentNodeList[editable].onChange();
+	    }
+	},
 
-			onSelectorBlur();
-		}
-
-		// Text is selected
-		if ( selection.isCollapsed === false && composing === false ) {
-
-			currentNodeList = findNodes( selection.focusNode );
-
-			// Find if highlighting is in the editable area
-			if ( hasNode( currentNodeList, "ARTICLE") ) {
-				updateBubbleStates();
-				updateBubblePosition();
-
-				// Show the ui bubble
-				textOptions.className = "text-options active";
-			}
-		}
-
-		lastType = selection.isCollapsed;
-	}
+	onBoldClick = function() {
+	    document.execCommand('bold', false);
+	},
 	
-	function updateBubblePosition() {
-		var selection = window.getSelection();
-		var range = selection.getRangeAt(0);
-		var boundary = range.getBoundingClientRect();
-		
-		textOptions.style.top = boundary.top - 5 + window.pageYOffset + "px";
-		textOptions.style.left = (boundary.left + boundary.right)/2 + "px";
-	}
+	onItalicClick = function() {
+	    document.execCommand('italic', false);
+	},
 
-	function updateBubbleStates() {
+	onQuoteClick = function() {
+	    var nodeNames = findNodes(window.getSelection().focusNode);
 
-		// It would be possible to use classList here, but I feel that the
-		// browser support isn't quite there, and this functionality doesn't
-		// warrent a shim.
+	    if (hasNode(nodeNames, 'BLOCKQUOTE')) {
+		document.execCommand('formatBlock', false, 'p');
+		document.execCommand('outdent');
+	    } else {
+		document.execCommand('formatBlock', false, 'blockquote');
+	    }
+	},
 
-		if ( hasNode( currentNodeList, 'B') ) {
-			boldButton.className = "bold active"
-		} else {
-			boldButton.className = "bold"
-		}
+	onUrlClick = function(d, i) {
+	    if (optionsBox.classed("url-mode")) {
+		optionsBox.classed("url-mode", false);
 
-		if ( hasNode( currentNodeList, 'I') ) {
-			italicButton.className = "italic active"
-		} else {
-			italicButton.className = "italic"
-		}
+	    } else {
+		optionsBox.classed("url-mode", true);
 
-		if ( hasNode( currentNodeList, 'BLOCKQUOTE') ) {
-			quoteButton.className = "quote active"
-		} else {
-			quoteButton.className = "quote"
-		}
-
-		if ( hasNode( currentNodeList, 'A') ) {
-			urlButton.className = "url useicons active"
-		} else {
-			urlButton.className = "url useicons"
-		}
-	}
-
-	function onSelectorBlur() {
-
-		textOptions.className = "text-options fade";
-		setTimeout( function() {
-
-			if (textOptions.className == "text-options fade") {
-
-				textOptions.className = "text-options";
-				textOptions.style.top = '-999px';
-				textOptions.style.left = '-999px';
+		// Set timeout here to debounce the focus action
+		setTimeout(
+		    function() {
+			var nodeNames = findNodes(window.getSelection().focusNode);
+			
+			if (hasNode(nodeNames , "A")) {
+			    urlInput.node().value = nodeNames.url;
+			} else {
+			    // Symbolize text turning into a link, which is temporary, and will never be seen.
+			    document.execCommand('createLink', false, '/');
 			}
-		}, 260 )
-	}
 
-	function findNodes( element ) {
+			// Since typing in the input box kills the highlighted text we need
+			// to save this selection, to add the url link if it is provided.
+			lastSelection = window.getSelection().getRangeAt(0);
+			lastType = false;
 
-		var nodeNames = {};
+			urlInput.node().focus();
+		    },
+		    100
+		);		
+	    }
+	},
 
-		// Internal node?
-		var selection = window.getSelection();
+	onUrlInputKeyDown = function(d, i) {
+	    if (d3.event.keyCode === 13) {
+		d3.event.preventDefault();
+		applyURL(urlInput.node().value);
+		urlInput.node().blur();
+	    }
+	},
 
-		// if( selection.containsNode( document.querySelector('b'), false ) ) {
-		// 	nodeNames[ 'B' ] = true;
-		// }
+	onUrlInputBlur = function() {
+	    optionsBox.classed("url-mode", false);
+	    applyURL(urlInput.node().value);
+	    urlInput.node().value = '';
 
-		while ( element.parentNode ) {
+	    currentNodeList = findNodes(window.getSelection().focusNode);
+	    updateBubbleStates();
+	},	
 
-			nodeNames[element.nodeName] = true;
-			element = element.parentNode;
+	urlButton = lengthenUIInputs.append("button")
+	    .classed("url", true)
+	    .classed("useicons", true)
+	    .on("mousedown", onUrlClick)
+	    .html("&#xe005;"),
 
-			if ( element.nodeName === 'A' ) {
-				nodeNames.url = element.href;
-			}
-		}
+	urlInput = lengthenUIInputs.append("input")
+	    .classed("url-input", true)
+	    .attr("type", "text")
+	    .attr("placeholder", "Type or Paste URL here")
+	    .on("blur", onUrlInputBlur)
+	    .on("keydown", onUrlInputKeyDown),
+	
+	boldButton = lengthenUIInputs.append("button")
+	    .classed("bold", true)
+	    .on("click", onBoldClick)
+	    .text("b"),
 
-		return nodeNames;
-	}
+	italicButton = lengthenUIInputs.append("button")
+	    .classed("italic", true)
+	    .on("click", onItalicClick)
+	    .text("i"),
 
-	function hasNode( nodeList, name ) {
+	quoteButton = lengthenUIInputs.append("button")
+	    .classed("quote", true)
+	    .on("click", onQuoteClick)
+	    .html("&rdquo;"),
 
-		return !!nodeList[ name ];
-	}
+	updateBubblePosition = function() {
+	    var selection = window.getSelection(),
+		range = selection.getRangeAt(0),
+		boundary = range.getBoundingClientRect();
+	    
+	    textOptions.style("top", boundary.top - 5 + window.pageYOffset + "px");
+	    textOptions.style("left", (boundary.left + boundary.right)/2 + "px");
+	},
 
-	function saveState( event ) {
+	currentNodeList,
+	
+	updateBubbleStates = function() {
+	    d3.map({
+		'B': boldButton,
+		'I': italicButton,
+		'BLOCKQUOTE': quoteButton,
+		'A': urlButton
+	    }).forEach(function(element, button) {
+		button.classed(
+		    "active",
+		    hasNode(currentNodeList, element)
+		);
+	    });
+	    
+	},
+
+	checkTextHighlighting = function(event) {
+	    var selection = window.getSelection();
+
+	    if (event.target.className === "url-input" ||
+		event.target.classList.contains("url") ||
+		event.target.parentNode.classList.contains("ui-inputs")) {
 		
-		localStorage[ 'header' ] = headerField.innerHTML;
-		localStorage[ 'content' ] = contentField.innerHTML;
-	}
-
-	function loadState() {
-
-		if ( localStorage[ 'header' ] ) {
-			headerField.innerHTML = localStorage[ 'header' ];
-		}
-
-		if ( localStorage[ 'content' ] ) {
-			contentField.innerHTML = localStorage[ 'content' ];
-		}
-	}
-
-	function onBoldClick() {
-		document.execCommand( 'bold', false );
-	}
-
-	function onItalicClick() {
-		document.execCommand( 'italic', false );
-	}
-
-	function onQuoteClick() {
-
-		var nodeNames = findNodes( window.getSelection().focusNode );
-
-		if ( hasNode( nodeNames, 'BLOCKQUOTE' ) ) {
-			document.execCommand( 'formatBlock', false, 'p' );
-			document.execCommand( 'outdent' );
-		} else {
-			document.execCommand( 'formatBlock', false, 'blockquote' );
-		}
-	}
-
-	function onUrlClick() {
-
-		if ( optionsBox.className == 'options' ) {
-
-			optionsBox.className = 'options url-mode';
-
-			// Set timeout here to debounce the focus action
-			setTimeout( function() {
-
-				var nodeNames = findNodes( window.getSelection().focusNode );
-
-				if ( hasNode( nodeNames , "A" ) ) {
-					urlInput.value = nodeNames.url;
-				} else {
-					// Symbolize text turning into a link, which is temporary, and will never be seen.
-					document.execCommand( 'createLink', false, '/' );
-				}
-
-				// Since typing in the input box kills the highlighted text we need
-				// to save this selection, to add the url link if it is provided.
-				lastSelection = window.getSelection().getRangeAt(0);
-				lastType = false;
-
-				urlInput.focus();
-
-			}, 100);
-
-		} else {
-
-			optionsBox.className = 'options';
-		}
-	}
-
-	function onUrlInputKeyDown( event ) {
-
-		if ( event.keyCode === 13 ) {
-			event.preventDefault();
-			applyURL( urlInput.value );
-			urlInput.blur();
-		}
-	}
-
-	function onUrlInputBlur( event ) {
-
-		optionsBox.className = 'options';
-		applyURL( urlInput.value );
-		urlInput.value = '';
-
-		currentNodeList = findNodes( window.getSelection().focusNode );
+		currentNodeList = findNodes(selection.focusNode);
 		updateBubbleStates();
-	}
+		return;
+	    }
+	    
+	    // Check selections exist
+	    if (selection.isCollapsed === true && lastType === false) {
+		onSelectorBlur();
+	    }
 
-	function applyURL( url ) {
+	    // Text is selected
+	    if (selection.isCollapsed === false && composing === false) {
 
-		rehighlightLastSelection();
+		currentNodeList = findNodes(selection.focusNode);
 
-		// Unlink any current links
-		document.execCommand( 'unlink', false );
+		// Find if highlighting is in the editable area
+		if (hasNode(currentNodeList, editable)) {
+		    updateBubbleStates();
+		    updateBubblePosition();
 
-		if (url !== "") {
-		
-			// Insert HTTP if it doesn't exist.
-			if ( !url.match("^(http|https)://") ) {
-
-				url = "http://" + url;	
-			} 
-
-			document.execCommand( 'createLink', false, url );
+		    // Show the ui bubble
+		    textOptions.classed("active", true);
 		}
-	}
+	    }
 
-	function rehighlightLastSelection() {
+	    lastType = selection.isCollapsed;
+	},
 
-		window.getSelection().addRange( lastSelection );
-	}
+	onSelectorBlur = function(event) {
+	    textOptions.classed("fade", true);
+	    setTimeout(
+		function() {
+		    if (textOptions.classed("fade")) {
+			textOptions.classed("fade", false)
+			    .style("top", nowhere)
+			    .style("left", nowhere);
+		    }
+		},
+		260
+	    );
+	},
 
-	function getWordCount() {
-		
-		var text = ZenPen.util.getText( contentField );
+	createEventBindings = function() {
+	    document.onkeyup = checkTextHighlighting;
 
-		if ( text === "" ) {
-			return 0
+	    // Mouse bindings
+	    document.onmousedown = checkTextHighlighting;
+	    document.onmouseup = function(event) {
+
+		setTimeout(
+		    function() {
+			checkTextHighlighting(event);
+		    },
+		    1
+		);
+	    };
+	    
+	    document.body.addEventListener('scroll', function() {
+		updateBubblePosition();
+	    });
+
+	    window.addEventListener('resize', function(event) {
+		updateBubblePosition();
+	    });	    
+
+	    // Composition bindings. We need them to distinguish
+	    // IME composition from text selection
+	    document.addEventListener('compositionstart', onCompositionStart);
+	    document.addEventListener('compositionend', onCompositionEnd);
+	},
+
+	applyURL = function(url) {
+	    rehighlightLastSelection();
+
+	    // Unlink any current links
+	    document.execCommand('unlink', false);
+
+	    if (url !== "") {
+
+		// Insert HTTP if it doesn't exist.
+		if (!url.match("^(http|https)://")) {
+
+		    url = "http://" + url;	
+		} 
+
+		document.execCommand('createLink', false, url);
+
+		var resultRange = document.getSelection().getRangeAt(0);
+
+		if (resultRange.startContainer === resultRange.endContainer) {
+		    anchorAttr(
+			resultRange.commonAncestorContainer.parentNode
+		    );
+		    
 		} else {
-			return text.split(/\s+/).length;
+		    Array.prototype.forEach.call(
+			resultRange.commonAncestorContainer.querySelectorAll("a"),
+			anchorAttr
+		    );
 		}
-	}
+	    }
 
-	function onCompositionStart ( event ) {
-		composing = true;
-	}
+	    onChange();
+	};
 
-	function onCompositionEnd (event) {
-		composing = false;
-	}
+    createEventBindings();
 
-	return {
-		init: init,
-		saveState: saveState,
-		getWordCount: getWordCount
-	}
+    /*
+     Connects the toolbar to an element.
+     */
+    return function(documents, onChange)  {
+	documents.attr("contenteditable", true)
+	    .classed(editable, true)
+	    .on("input", function(d, i) {
+		this.onChange();
+	    })
+	    .each(function(d, i) {
+		var el = d3.select(this);
 
-})();
+		/*
+		 We'll hang our update function on the dom element itself.
+		 */
+		this.onChange = function() {
+		    if (onChange) {
+			onChange(el.datum(), null, el.html());
+		    }
+		};
+	    });
+    };
+};
