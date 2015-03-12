@@ -188,12 +188,17 @@ module.exports = function(container) {
 	    .html("&rdquo;"),
 
 	updateBubblePosition = function() {
-	    var selection = window.getSelection(),
-		range = selection.getRangeAt(0),
-		boundary = range.getBoundingClientRect();
+	    var selection = window.getSelection();
+
+	    if (selection.collapsed) {
+		onSelectorBlur();
+	    } else {
+		var range = selection.getRangeAt(0),
+		    boundary = range.getBoundingClientRect();
 	    
-	    textOptions.style("top", boundary.top - 5 + window.pageYOffset + "px");
-	    textOptions.style("left", (boundary.left + boundary.right)/2 + "px");
+		textOptions.style("top", boundary.top - 5 + window.pageYOffset + "px");
+		textOptions.style("left", (boundary.left + boundary.right)/2 + "px");
+	    }
 	},
 
 	currentNodeList,
