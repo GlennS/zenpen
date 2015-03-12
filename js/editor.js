@@ -213,12 +213,14 @@ module.exports = function(container) {
 	    
 	},
 
-	checkTextHighlighting = function(event) {
+	checkTextHighlighting = function() {
 	    var selection = window.getSelection();
 
-	    if (event.target.className === "url-input" ||
-		event.target.classList.contains("url") ||
-		event.target.parentNode.classList.contains("ui-inputs")) {
+	    if (d3.event &&
+		(
+		    d3.event.toElement === "url-input" ||
+			d3.event.toElement.contains("url") ||
+			d3.event.toElement.parentNode.classList.contains("ui-inputs"))) {
 		
 		currentNodeList = findNodes(selection.focusNode);
 		updateBubbleStates();
@@ -263,20 +265,6 @@ module.exports = function(container) {
 	},
 
 	createEventBindings = function() {
-	    document.onkeyup = checkTextHighlighting;
-
-	    // Mouse bindings
-	    document.onmousedown = checkTextHighlighting;
-	    document.onmouseup = function(event) {
-
-		setTimeout(
-		    function() {
-			checkTextHighlighting(event);
-		    },
-		    1
-		);
-	    };
-	    
 	    document.body.addEventListener('scroll', function() {
 		updateBubblePosition();
 	    });
@@ -335,6 +323,23 @@ module.exports = function(container) {
 	    .classed(editable, true)
 	    .on("input", function(d, i) {
 		this.onChange();
+	    })
+	    .on("keyup", function(d, i) {
+		d3.event.stopPropagation();
+		checkTextHighlighting();
+	    })
+	    .on("mousedown", function(d, i) {
+		d3.event.stopPropagation();
+		checkTextHighlighting();
+	    })
+	    .on("mouseup", function(d, i) {
+		d3.event.stopPropagation();
+		setTimeout(
+		    function() {
+			checkTextHighlighting();
+		    },
+		    1
+		);		
 	    })
 	    .each(function(d, i) {
 		var el = d3.select(this);
