@@ -339,7 +339,6 @@ module.exports = function(container) {
 		checkTextHighlighting();
 	    })
 	    .on("mouseup", function(d, i) {
-		d3.event.stopPropagation();
 		setTimeout(
 		    function() {
 			checkTextHighlighting();
