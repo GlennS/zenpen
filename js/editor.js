@@ -190,7 +190,7 @@ module.exports = function(container) {
 	updateBubblePosition = function() {
 	    var selection = window.getSelection();
 
-	    if (selection.isCollapsed === "Range") {
+	    if (selection.isCollapsed) {
 		onSelectorBlur();
 	    } else {
 		var range = selection.getRangeAt(0),
