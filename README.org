@@ -20,15 +20,7 @@ I've removed the following features:
  + Colour change
 
 *** Links
-The text of a link can no longer be edited once it's been created (contentEditable="false"). Instead, you must delete and re-create it.
-
 Links now always refer to the browser window when we're in an iframe (target="_top").
-
-** TODO API
-What should this be?
-
-*** Example
-
 
 ** Run the Demo
 First, clone the repository:
